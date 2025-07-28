@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Video Player Controller</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .connection-status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .connection-status.connected {
+            background: rgba(76, 175, 80, 0.8);
+        }
+
+        .connection-status.disconnected {
+            background: rgba(244, 67, 54, 0.8);
+        }
+
+        .connection-status.waiting {
+            background: rgba(255, 193, 7, 0.8);
+            color: #333;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .now-playing {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .now-playing h2 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+
+        .current-video {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .video-info {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 15px;
+        }
+
+        .time-display {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px 8px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn.primary {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .btn.primary:hover {
+            background: linear-gradient(45deg, #45a049, #4CAF50);
+        }
+
+        .btn.secondary {
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+            color: white;
+        }
+
+        .btn.secondary:hover {
+            background: linear-gradient(45deg, #1976D2, #2196F3);
+        }
+
+        .btn:disabled {
+            background: rgba(128, 128, 128, 0.5);
+            color: rgba(255, 255, 255, 0.5);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .playlist {
+            margin-top: 20px;
+        }
+
+        .playlist h3 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .playlist-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .playlist-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .playlist-item.current {
+            background: rgba(76, 175, 80, 0.3);
+            border-color: #4CAF50;
+        }
+
+        .playlist-item.playing {
+            background: rgba(76, 175, 80, 0.5);
+            border-color: #4CAF50;
+        }
+
+        .playlist-item .title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .playlist-item .duration {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        .status-section {
+            margin-top: 20px;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-item:last-child {
+            border-bottom: none;
+        }
+
+        .status-label {
+            font-weight: 500;
+        }
+
+        .status-value {
+            opacity: 0.8;
+        }
+
+        .vr-notification {
+            background: rgba(255, 193, 7, 0.8);
+            border: 1px solid rgba(255, 193, 7, 1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            animation: pulse 2s infinite;
+        }
+
+        .vr-notification.hidden {
+            display: none;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
+
+        .setup-notice {
+            background: rgba(255, 193, 7, 0.2);
+            border: 1px solid rgba(255, 193, 7, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .setup-notice.hidden {
+            display: none;
+        }
+
+        .emoji {
+            font-size: 24px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .btn {
+                padding: 12px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 VR Video Controller</h1>
+            <div id="connection-status" class="connection-status disconnected">
+                Connecting...
+            </div>
+        </div>
+
+        <div id="vr-notification" class="vr-notification hidden">
+            <span class="emoji">🔄</span>
+            <div id="vr-notification-text">VR perspective has been reset</div>
+        </div>
+
+        <div id="setup-notice" class="setup-notice">
+            <span class="emoji">⚠️</span>
+            <strong>Setup Required</strong><br>
+            Please complete the setup process on the VR headset first.
+        </div>
+
+        <div class="card now-playing">
+            <h2>Now Playing</h2>
+            <div id="current-video" class="current-video">
+                No video selected
+            </div>
+            <div id="video-info" class="video-info">
+                Select a video from the playlist below
+            </div>
+            <div id="time-display" class="time-display">
+                00:00 / 00:00
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="controls">
+                <button id="play-btn" class="btn primary" onclick="playVideo()" disabled>
+                    ▶️ Play
+                </button>
+                <button id="pause-btn" class="btn secondary" onclick="pauseVideo()" disabled>
+                    ⏸️ Pause
+                </button>
+                <button id="next-btn" class="btn secondary" onclick="nextVideo()" disabled>
+                    ⏭️ Next
+                </button>
+            </div>
+        </div>
+
+        <div class="card playlist">
+            <h3>📋 Playlist</h3>
+            <div id="playlist-container">
+                <!-- Playlist items will be populated here -->
+            </div>
+        </div>
+
+        <div class="card status-section">
+            <h3>📊 Status</h3>
+            <div class="status-item">
+                <span class="status-label">VR Client</span>
+                <span id="vr-status" class="status-value">Disconnected</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Gesture Enabled</span>
+                <span id="gesture-status" class="status-value">No</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">VR Mode</span>
+                <span id="vr-mode-status" class="status-value">Unknown</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Last Reset</span>
+                <span id="last-reset-time" class="status-value">None</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class VideoController {
+            constructor() {
+                this.ws = null;
+                this.serverState = null;
+                this.playlist = [];
+                this.vrResetCount = 0;
+                
+                this.initWebSocket();
+                this.loadPlaylist();
+            }
+
+            initWebSocket() {
+                try {
+                    this.ws = new WebSocket('ws://192.168.0.128:8080');
+                    
+                    this.ws.onopen = () => {
+                        console.log('Controller WebSocket connected');
+                        this.updateConnectionStatus('connected');
+                        
+                        // Register as controller client
+                        this.send({
+                            type: 'register',
+                            clientType: 'controller'
+                        });
+                    };
+
+                    this.ws.onmessage = (event) => {
+                        const message = JSON.parse(event.data);
+                        this.handleServerMessage(message);
+                    };
+
+                    this.ws.onclose = () => {
+                        console.log('Controller WebSocket disconnected');
+                        this.updateConnectionStatus('disconnected');
+                        setTimeout(() => this.initWebSocket(), 5000);
+                    };
+
+                    this.ws.onerror = (error) => {
+                        console.error('Controller WebSocket error:', error);
+                        this.updateConnectionStatus('disconnected');
+                    };
+                } catch (error) {
+                    console.error('Failed to create WebSocket:', error);
+                    this.updateConnectionStatus('disconnected');
+                }
+            }
+
+            async loadPlaylist() {
+                try {
+                    const response = await fetch('/playlist');
+                    this.playlist = await response.json();
+                    this.renderPlaylist();
+                } catch (error) {
+                    console.error('Failed to load playlist:', error);
+                }
+            }
+
+            handleServerMessage(message) {
+                console.log('Controller received from server:', message);
+
+                switch (message.type) {
+                    case 'state':
+                        this.serverState = message.data;
+                        this.updateUI();
+                        break;
+
+                    case 'time_update':
+                        this.updateTimeDisplay(message.currentTime);
+                        break;
+
+                    case 'vr_reset_notification':
+                        this.showVRResetNotification(message);
+                        break;
+
+                    case 'vr_status_change':
+                        this.updateVRModeStatus(message.status);
+                        break;
+                }
+            }
+
+            updateUI() {
+                if (!this.serverState) return;
+
+                // Update connection and status indicators
+                const vrStatus = document.getElementById('vr-status');
+                const gestureStatus = document.getElementById('gesture-status');
+                const vrModeStatus = document.getElementById('vr-mode-status');
+                
+                vrStatus.textContent = this.serverState.vrClientReady ? 'Connected' : 'Disconnected';
+                gestureStatus.textContent = this.serverState.gestureEnabled ? 'Yes' : 'No';
+
+                // Update setup notice
+                const setupNotice = document.getElementById('setup-notice');
+                
+                if (this.serverState.gestureEnabled) {
+                    setupNotice.classList.add('hidden');
+                } else {
+                    setupNotice.classList.remove('hidden');
+                    setupNotice.innerHTML = `
+                        <span class="emoji">⚠️</span>
+                        <strong>Setup Required</strong><br>
+                        Please enter VR mode and move your hands to enable video playback.
+                    `;
+                }
+
+                // Update current video display
+                const currentVideo = document.getElementById('current-video');
+                const videoInfo = document.getElementById('video-info');
+                
+                if (this.serverState.currentVideo) {
+                    currentVideo.textContent = this.serverState.currentVideo.name;
+                    videoInfo.textContent = `${this.serverState.currentVideo.file} • ${Math.floor(this.serverState.currentVideo.duration / 60)}:${(this.serverState.currentVideo.duration % 60).toString().padStart(2, '0')}`;
+                } else {
+                    currentVideo.textContent = 'No video selected';
+                    videoInfo.textContent = 'Select a video from the playlist below';
+                }
+
+                // Update control buttons
+                const playBtn = document.getElementById('play-btn');
+                const pauseBtn = document.getElementById('pause-btn');
+                const nextBtn = document.getElementById('next-btn');
+                
+                const canControl = this.serverState.gestureEnabled && this.serverState.vrClientReady;
+                
+                // Enable/disable based on gesture state
+                playBtn.disabled = !canControl;
+                pauseBtn.disabled = !canControl;
+                nextBtn.disabled = !canControl || this.serverState.currentIndex >= this.playlist.length - 1;
+                
+                // Update button states based on playing status
+                if (this.serverState.isPlaying) {
+                    playBtn.disabled = true; // Disable play when playing
+                    pauseBtn.disabled = !canControl; // Enable pause when playing
+                    playBtn.textContent = '▶️ Playing...';
+                    pauseBtn.textContent = '⏸️ Pause';
+                } else {
+                    if (this.serverState.currentVideo) {
+                        playBtn.disabled = !canControl; // Enable play when paused/stopped
+                        pauseBtn.disabled = true; // Disable pause when not playing
+                        playBtn.textContent = '▶️ Play';
+                        pauseBtn.textContent = '⏸️ Paused';
+                    } else {
+                        playBtn.textContent = '▶️ Start';
+                        pauseBtn.textContent = '⏸️ Pause';
+                        pauseBtn.disabled = true;
+                    }
+                }
+
+                // Update playlist highlighting
+                this.updatePlaylistHighlight();
+            }
+
+            showVRResetNotification(data) {
+                this.vrResetCount++;
+                const notification = document.getElementById('vr-notification');
+                const notificationText = document.getElementById('vr-notification-text');
+                const lastResetTime = document.getElementById('last-reset-time');
+                
+                const resetTime = new Date(data.timestamp).toLocaleTimeString();
+                
+                notificationText.textContent = `VR perspective reset detected (${this.vrResetCount})`;
+                lastResetTime.textContent = resetTime;
+                
+                notification.classList.remove('hidden');
+                
+                // Auto-hide after 5 seconds
+                setTimeout(() => {
+                    notification.classList.add('hidden');
+                }, 5000);
+                
+                console.log('VR reset detected:', data);
+            }
+
+            updateVRModeStatus(status) {
+                const vrModeStatus = document.getElementById('vr-mode-status');
+                vrModeStatus.textContent = status === 'entered' ? 'Active' : 'Inactive';
+            }
+
+            updateTimeDisplay(currentTime) {
+                const timeDisplay = document.getElementById('time-display');
+                const duration = this.serverState?.currentVideo?.duration || 0;
+                
+                const formatTime = (seconds) => {
+                    const mins = Math.floor(seconds / 60);
+                    const secs = Math.floor(seconds % 60);
+                    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                };
+
+                timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+            }
+
+            renderPlaylist() {
+                const container = document.getElementById('playlist-container');
+                container.innerHTML = '';
+
+                this.playlist.forEach((video, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'playlist-item';
+                    item.onclick = () => this.selectVideo(index);
+                    
+                    const duration = Math.floor(video.duration / 60) + ':' + 
+                                   (video.duration % 60).toString().padStart(2, '0');
+                    
+                    item.innerHTML = `
+                        <div class="title">${video.name}</div>
+                        <div class="duration">${video.file} • ${duration}</div>
+                    `;
+                    
+                    container.appendChild(item);
+                });
+            }
+
+            updatePlaylistHighlight() {
+                const items = document.querySelectorAll('.playlist-item');
+                items.forEach((item, index) => {
+                    item.classList.remove('current', 'playing');
+                    
+                    if (this.serverState && index === this.serverState.currentIndex) {
+                        if (this.serverState.isPlaying) {
+                            item.classList.add('playing');
+                        } else {
+                            item.classList.add('current');
+                        }
+                    }
+                });
+            }
+
+            updateConnectionStatus(status) {
+                const statusEl = document.getElementById('connection-status');
+                statusEl.className = `connection-status ${status}`;
+                
+                switch (status) {
+                    case 'connected':
+                        statusEl.textContent = '🟢 Connected';
+                        break;
+                    case 'disconnected':
+                        statusEl.textContent = '🔴 Disconnected';
+                        break;
+                    case 'waiting':
+                        statusEl.textContent = '🟡 Waiting...';
+                        break;
+                }
+            }
+
+            send(message) {
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify(message));
+                }
+            }
+
+            // Control methods
+            playVideo() {
+                if (this.serverState?.gestureEnabled) {
+                    this.send({ type: 'play' });
+                }
+            }
+
+            pauseVideo() {
+                if (this.serverState?.gestureEnabled) {
+                    this.send({ type: 'pause' });
+                }
+            }
+
+            nextVideo() {
+                if (this.serverState?.gestureEnabled) {
+                    this.send({ type: 'next' });
+                }
+            }
+
+            selectVideo(index) {
+                if (this.serverState?.gestureEnabled && index !== this.serverState.currentIndex) {
+                    this.send({ 
+                        type: 'select_video',
+                        index: index 
+                    });
+                }
+            }
+        }
+
+        // Global functions for UI
+        function playVideo() {
+            window.controller.playVideo();
+        }
+
+        function pauseVideo() {
+            window.controller.pauseVideo();
+        }
+
+        function nextVideo() {
+            window.controller.nextVideo();
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.controller = new VideoController();
+        });
+    </script>
+</body>
+</html>

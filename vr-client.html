@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>WebXR Video Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            font-family: Arial, sans-serif;
+        }
+        
+        #ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            text-align: center;
+        }
+        
+        #ui-overlay.hidden {
+            display: none;
+        }
+        
+        .step {
+            display: none;
+            max-width: 600px;
+            padding: 20px;
+        }
+        
+        .step.active {
+            display: block;
+        }
+        
+        .step h2 {
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+        
+        .step p {
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            background: #333;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 1001;
+        }
+        
+        .connection-status.connected {
+            background: #4CAF50;
+        }
+        
+        .connection-status.disconnected {
+            background: #f44336;
+        }
+        
+        #gesture-area {
+            width: 200px;
+            height: 200px;
+            border: 3px dashed #4CAF50;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px auto;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        #gesture-area:hover {
+            background: rgba(76, 175, 80, 0.1);
+            border-style: solid;
+        }
+        
+        #gesture-area.captured {
+            background: rgba(76, 175, 80, 0.3);
+            border-color: #4CAF50;
+            border-style: solid;
+        }
+    </style>
+</head>
+<body>
+    <div id="connection-status" class="connection-status disconnected">
+        Connecting...
+    </div>
+
+    <div id="ui-overlay">
+        <!-- Step 1: Welcome & VR Entry -->
+        <div id="step-1" class="step active">
+            <h2>🥽 WebXR Video Player for Quest 2</h2>
+            <p>Welcome! This is a VR video player optimized for Meta Quest 2.</p>
+            <p><strong>Instructions:</strong></p>
+            <ul style="text-align: left;">
+                <li>Put on your Meta Quest 2 headset</li>
+                <li>Make sure controllers are connected</li>
+                <li>Click "Enter VR" button below</li>
+                <li>Open controller app on your phone/tablet</li>
+                <li>Use Quest 2 controllers to enable video playback</li>
+            </ul>
+            <button onclick="enterVR()">Enter VR Mode</button>
+        </div>
+
+        <!-- Step 2: VR Hand Gesture Detection (shown in VR) -->
+        <div id="step-2" class="step">
+            <h2>🎮 Quest 2 Interaction Required</h2>
+            <p>You are now in WebXR VR mode!</p>
+            <p><strong>Use your Quest 2 controllers:</strong></p>
+            <ul style="text-align: left;">
+                <li>Move your controllers around, OR</li>
+                <li>Press any trigger or grip button, OR</li>
+                <li>Use hand tracking if enabled</li>
+            </ul>
+            <p>This enables browser video playback with audio.</p>
+            
+            <div id="gesture-status" class="status">
+                Waiting for Quest 2 controller interaction...
+            </div>
+        </div>
+
+        <!-- Step 3: Ready -->
+        <div id="step-3" class="step">
+            <h2>✅ Ready!</h2>
+            <p>Hand gesture detected! Video player is now ready.</p>
+            <p><strong>How to use:</strong></p>
+            <ul style="text-align: left;">
+                <li>Use your phone/tablet controller to play videos</li>
+                <li>Videos will play automatically in 360° immersive mode</li>
+                <li>No manual controls in VR - everything is remote controlled</li>
+            </ul>
+            <p style="color: #4CAF50; font-weight: bold;">Use your phone controller to start watching!</p>
+        </div>
+    </div>
+
+    <!-- A-Frame VR Scene -->
+    <a-scene
+        id="vr-scene"
+        vr-mode-ui="enabled: true"
+        device-orientation-permission-ui="enabled: false"
+        embedded
+        webxr="requiredFeatures: local-floor; optionalFeatures: hand-tracking"
+        style="height: 100vh; width: 100vw;">
+        
+        <!-- Assets -->
+        <a-assets>
+            <video id="video-player" 
+                   crossorigin="anonymous" 
+                   playsinline 
+                   webkit-playsinline 
+                   preload="metadata"
+                   src="">
+            </video>
+        </a-assets>
+
+        <!-- 360 Video Sphere -->
+        <a-videosphere
+            id="video-sphere"
+            src="#video-player"
+            visible="false"
+            radius="100"
+            rotation="0 180 0">
+        </a-videosphere>
+
+        <!-- Fallback Sky/Environment -->
+        <a-sky id="fallback-sky" color="#000000"></a-sky>
+
+        <!-- UI Elements positioned for VR -->
+        <a-text
+            id="status-text"
+            position="0 1.6 -2"
+            align="center"
+            color="white"
+            width="8"
+            value="Put on headset and click Enter VR...">
+        </a-text>
+
+        <a-text
+            id="video-title"
+            position="0 2.2 -2"
+            align="center"
+            color="#4CAF50"
+            width="6"
+            value=""
+            visible="false">
+        </a-text>
+
+        <!-- Simple VR Camera Setup -->
+        <a-entity 
+            id="vr-rig" 
+            position="0 1.6 0">
+            
+            <!-- Camera -->
+            <a-camera 
+                id="vr-camera"
+                look-controls="pointerLockEnabled: false"
+                wasd-controls="enabled: false">
+            </a-camera>
+            
+            <!-- Left Hand Controller - Quest 2 Only -->
+            <a-entity 
+                id="left-hand"
+                oculus-touch-controls="hand: left"
+                visible="true">
+            </a-entity>
+            
+            <!-- Right Hand Controller - Quest 2 Only -->
+            <a-entity 
+                id="right-hand" 
+                oculus-touch-controls="hand: right"
+                visible="true">
+            </a-entity>
+        </a-entity>
+
+        <!-- Simple Lighting -->
+        <a-light type="ambient" color="#404040" intensity="0.4"></a-light>
+        <a-light type="directional" position="2 4 5" color="#ffffff" intensity="0.2"></a-light>
+    </a-scene>
+
+    <script>
+        class VRVideoPlayer {
+            constructor() {
+                this.ws = null;
+                this.videoPlayer = document.getElementById('video-player');
+                this.videoSphere = null; // Will be set after scene loads
+                this.statusText = document.getElementById('status-text');
+                this.videoTitle = document.getElementById('video-title');
+                this.vrCamera = null; // Will be set after scene loads
+                this.leftHand = null;
+                this.rightHand = null;
+                
+                this.currentStep = 1;
+                this.gestureEnabled = false;
+                this.serverState = null;
+                this.lastCameraPosition = { x: 0, y: 0, z: 0 };
+                this.lastCameraRotation = { x: 0, y: 0, z: 0 };
+                this.lastLeftHandPosition = { x: 0, y: 0, z: 0 };
+                this.lastRightHandPosition = { x: 0, y: 0, z: 0 };
+                this.gestureCheckInterval = null;
+                this.inVRMode = false;
+                
+                this.initWebSocket();
+                this.setupVideoEvents();
+                this.setupVREvents();
+            }
+
+            setupVREvents() {
+                // Wait for A-Frame scene to load
+                const scene = document.getElementById('vr-scene');
+                scene.addEventListener('loaded', () => {
+                    this.videoSphere = document.getElementById('video-sphere');
+                    this.vrCamera = document.getElementById('vr-camera');
+                    this.leftHand = document.getElementById('left-hand');
+                    this.rightHand = document.getElementById('right-hand');
+                    
+                    console.log('A-Frame scene loaded, VR components ready');
+                    
+                    // Set up hand/controller event listeners
+                    this.setupHandControllerEvents();
+                    
+                    // Monitor camera position/rotation for reset detection
+                    if (this.vrCamera) {
+                        this.startCameraMonitoring();
+                    }
+                });
+
+                // WebXR session events
+                scene.addEventListener('enter-vr', () => {
+                    console.log('Entered WebXR VR mode');
+                    this.inVRMode = true;
+                    this.send({ type: 'vr_entered' });
+                    
+                    // Show step 2 (gesture detection) when entering VR
+                    this.showStep(2);
+                    
+                    // Start hand gesture monitoring
+                    this.startHandGestureMonitoring();
+                    
+                    // Update status text for VR
+                    this.statusText.setAttribute('value', 'VR Mode Active - Move hands to enable videos');
+                });
+
+                scene.addEventListener('exit-vr', () => {
+                    console.log('Exited WebXR VR mode');
+                    this.inVRMode = false;
+                    this.send({ type: 'vr_exited' });
+                    
+                    // Stop gesture monitoring
+                    if (this.gestureCheckInterval) {
+                        clearInterval(this.gestureCheckInterval);
+                    }
+                    
+                    // Show step 1 again
+                    this.showStep(1);
+                    
+                    // Reset status text
+                    this.statusText.setAttribute('value', 'Put on headset and click Enter VR...');
+                });
+            }
+
+            setupHandControllerEvents() {
+                // Set up events for both hands - simplified for Quest 2
+                ['left-hand', 'right-hand'].forEach(handId => {
+                    const hand = document.getElementById(handId);
+                    if (hand) {
+                        // Quest 2 controller button events
+                        hand.addEventListener('triggerdown', () => {
+                            console.log(`${handId} trigger pressed on Quest 2`);
+                            if (!this.gestureEnabled && this.inVRMode) {
+                                this.captureGesture();
+                            }
+                        });
+
+                        hand.addEventListener('gripdown', () => {
+                            console.log(`${handId} grip pressed on Quest 2`);
+                            if (!this.gestureEnabled && this.inVRMode) {
+                                this.captureGesture();
+                            }
+                        });
+
+                        hand.addEventListener('buttondown', () => {
+                            console.log(`${handId} button pressed on Quest 2`);
+                            if (!this.gestureEnabled && this.inVRMode) {
+                                this.captureGesture();
+                            }
+                        });
+
+                        // Quest 2 thumbstick events
+                        hand.addEventListener('thumbstickmoved', () => {
+                            console.log(`${handId} thumbstick moved on Quest 2`);
+                            if (!this.gestureEnabled && this.inVRMode) {
+                                this.captureGesture();
+                            }
+                        });
+                    }
+                });
+            }
+
+            startHandGestureMonitoring() {
+                // Only start monitoring if in VR and gesture not yet enabled
+                if (!this.inVRMode || this.gestureEnabled) return;
+                
+                console.log('Starting simplified Quest 2 gesture monitoring');
+                
+                // Shorter fallback for Quest 2 - just entering VR is often enough
+                setTimeout(() => {
+                    if (!this.gestureEnabled && this.inVRMode) {
+                        console.log('Auto-enabling gesture for Quest 2 - VR session active');
+                        this.captureGesture();
+                    }
+                }, 2000); // 2 seconds fallback for Quest 2
+            }
+
+            checkHandMovement(handId, position) {
+                // Simplified hand movement check
+                const lastPos = handId === 'left-hand' ? this.lastLeftHandPosition : this.lastRightHandPosition;
+                
+                const moved = Math.abs(position.x - lastPos.x) > 0.05 ||
+                             Math.abs(position.y - lastPos.y) > 0.05 ||
+                             Math.abs(position.z - lastPos.z) > 0.05;
+                
+                if (moved) {
+                    console.log(`${handId} movement detected on Quest 2`);
+                    this.captureGesture();
+                }
+                
+                // Update last position
+                if (handId === 'left-hand') {
+                    this.lastLeftHandPosition = { ...position };
+                } else {
+                    this.lastRightHandPosition = { ...position };
+                }
+            }
+
+            checkHandGesture() {
+                // Simplified gesture check for Quest 2
+                if (!this.leftHand || !this.rightHand || this.gestureEnabled) return;
+                
+                try {
+                    // Simple position check for Quest 2 controllers
+                    const leftEl = this.leftHand.object3D;
+                    const rightEl = this.rightHand.object3D;
+                    
+                    if (leftEl && rightEl && leftEl.position && rightEl.position) {
+                        // Any controller movement triggers gesture
+                        const leftPos = leftEl.position;
+                        const rightPos = rightEl.position;
+                        
+                        // Check if controllers have moved from initial position
+                        const leftMoved = Math.abs(leftPos.x) > 0.1 || Math.abs(leftPos.y - 1.6) > 0.1 || Math.abs(leftPos.z) > 0.1;
+                        const rightMoved = Math.abs(rightPos.x) > 0.1 || Math.abs(rightPos.y - 1.6) > 0.1 || Math.abs(rightPos.z) > 0.1;
+                        
+                        if (leftMoved || rightMoved) {
+                            console.log('Quest 2 controller movement detected!');
+                            this.captureGesture();
+                        }
+                    }
+                } catch (error) {
+                    console.log('Quest 2 gesture check failed, using fallback:', error.message);
+                    // Fallback - just being in VR is enough
+                    if (this.inVRMode) {
+                        this.captureGesture();
+                    }
+                }
+            }
+
+            startCameraMonitoring() {
+                setInterval(() => {
+                    if (this.vrCamera) {
+                        const currentPos = this.vrCamera.getAttribute('position');
+                        const currentRot = this.vrCamera.getAttribute('rotation');
+                        
+                        // Check for significant position/rotation reset
+                        const posChanged = Math.abs(currentPos.x - this.lastCameraPosition.x) > 2 ||
+                                         Math.abs(currentPos.y - this.lastCameraPosition.y) > 2 ||
+                                         Math.abs(currentPos.z - this.lastCameraPosition.z) > 2;
+                        
+                        const rotChanged = Math.abs(currentRot.y - this.lastCameraRotation.y) > 90;
+                        
+                        if (posChanged || rotChanged) {
+                            console.log('VR perspective reset detected');
+                            this.send({ 
+                                type: 'vr_reset_detected',
+                                position: currentPos,
+                                rotation: currentRot
+                            });
+                        }
+                        
+                        this.lastCameraPosition = { ...currentPos };
+                        this.lastCameraRotation = { ...currentRot };
+                    }
+                }, 1000); // Check every second
+            }
+
+            initWebSocket() {
+                try {
+                    this.ws = new WebSocket('ws://192.168.0.128:8080');
+                    
+                    this.ws.onopen = () => {
+                        console.log('WebSocket connected');
+                        this.updateConnectionStatus(true);
+                        
+                        // Register as VR client
+                        this.send({
+                            type: 'register',
+                            clientType: 'vr'
+                        });
+                    };
+
+                    this.ws.onmessage = (event) => {
+                        const message = JSON.parse(event.data);
+                        this.handleServerMessage(message);
+                    };
+
+                    this.ws.onclose = () => {
+                        console.log('WebSocket disconnected');
+                        this.updateConnectionStatus(false);
+                        setTimeout(() => this.initWebSocket(), 5000);
+                    };
+
+                    this.ws.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                        this.updateConnectionStatus(false);
+                    };
+                } catch (error) {
+                    console.error('Failed to create WebSocket:', error);
+                    this.updateConnectionStatus(false);
+                }
+            }
+
+            handleServerMessage(message) {
+                console.log('Received from server:', message);
+
+                switch (message.type) {
+                    case 'state':
+                        this.serverState = message.data;
+                        this.updateUI();
+                        break;
+
+                    case 'play_video':
+                        this.playVideo(message.video);
+                        break;
+
+                    case 'load_video':
+                        this.loadVideo(message.video);
+                        break;
+
+                    case 'resume':
+                        this.resumeVideo();
+                        break;
+
+                    case 'pause':
+                        this.pauseVideo();
+                        break;
+
+                    case 'time_update':
+                        // Server sending time updates (not used in VR client)
+                        break;
+                }
+            }
+
+            async playVideo(video) {
+                console.log('Playing video:', video);
+                
+                try {
+                    // Stop current video first
+                    this.videoPlayer.pause();
+                    
+                    // Set new video source
+                    this.videoPlayer.src = video.file;
+                    this.videoTitle.setAttribute('value', video.name);
+                    this.videoTitle.setAttribute('visible', 'true');
+                    
+                    // Load the video
+                    await new Promise((resolve, reject) => {
+                        this.videoPlayer.onloadedmetadata = resolve;
+                        this.videoPlayer.onerror = reject;
+                        this.videoPlayer.load();
+                    });
+                    
+                    if (this.gestureEnabled) {
+                        // Unmute and play with user interaction
+                        this.videoPlayer.muted = false;
+                        this.videoPlayer.volume = 1.0;
+                        
+                        await this.videoPlayer.play();
+                        
+                        // Show 360 video sphere
+                        if (this.videoSphere) {
+                            this.videoSphere.setAttribute('visible', 'true');
+                        }
+                        
+                        // Hide fallback sky
+                        const fallbackSky = document.getElementById('fallback-sky');
+                        if (fallbackSky) {
+                            fallbackSky.setAttribute('visible', 'false');
+                        }
+                        
+                        this.statusText.setAttribute('value', `Playing: ${video.name}`);
+                    } else {
+                        this.statusText.setAttribute('value', 'Waiting for user gesture...');
+                    }
+                    
+                    this.send({ type: 'video_ready' });
+                } catch (error) {
+                    console.error('Error playing video:', error);
+                    this.statusText.setAttribute('value', `Error: ${error.message}`);
+                }
+            }
+
+            async resumeVideo() {
+                if (this.gestureEnabled && this.videoPlayer.paused) {
+                    try {
+                        this.videoPlayer.muted = false;
+                        this.videoPlayer.volume = 1.0;
+                        await this.videoPlayer.play();
+                        this.statusText.setAttribute('value', 'Video resumed');
+                    } catch (error) {
+                        console.error('Error resuming video:', error);
+                    }
+                }
+            }
+
+            async loadVideo(video) {
+                console.log('Loading video (not playing):', video);
+                
+                try {
+                    // Set the video source but don't play
+                    this.videoPlayer.src = video.file;
+                    this.videoPlayer.load();
+                    
+                    // Update UI elements
+                    this.statusText.setAttribute('value', `Ready: ${video.name} (Press Play to start)`);
+                    
+                    if (this.videoTitle) {
+                        this.videoTitle.setAttribute('value', video.name);
+                        this.videoTitle.setAttribute('visible', 'true');
+                    }
+                    
+                    // Make video sphere visible but paused
+                    if (this.videoSphere) {
+                        this.videoSphere.setAttribute('visible', 'true');
+                        
+                        const fallbackSky = document.getElementById('fallback-sky');
+                        if (fallbackSky) {
+                            fallbackSky.setAttribute('visible', 'false');
+                        }
+                    }
+                    
+                    this.send({ type: 'video_ready' });
+                } catch (error) {
+                    console.error('Error loading video:', error);
+                    this.statusText.setAttribute('value', `Error loading: ${error.message}`);
+                }
+            }
+
+            pauseVideo() {
+                if (this.gestureEnabled && !this.videoPlayer.paused) {
+                    try {
+                        this.videoPlayer.pause();
+                        this.statusText.setAttribute('value', 
+                            this.serverState?.currentVideo?.name ? 
+                            `Paused: ${this.serverState.currentVideo.name}` : 
+                            'Video paused');
+                    } catch (error) {
+                        console.error('Error pausing video:', error);
+                    }
+                }
+            }
+
+            setupVideoEvents() {
+                this.videoPlayer.addEventListener('timeupdate', () => {
+                    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                        this.send({
+                            type: 'time_update',
+                            currentTime: this.videoPlayer.currentTime
+                        });
+                    }
+                });
+
+                this.videoPlayer.addEventListener('ended', () => {
+                    console.log('Video ended');
+                    if (this.videoSphere) {
+                        this.videoSphere.setAttribute('visible', 'false');
+                    }
+                    
+                    // Show fallback sky
+                    const fallbackSky = document.getElementById('fallback-sky');
+                    if (fallbackSky) {
+                        fallbackSky.setAttribute('visible', 'true');
+                    }
+                    
+                    this.statusText.setAttribute('value', 'Video completed');
+                    this.send({ type: 'video_ended' });
+                });
+
+                this.videoPlayer.addEventListener('error', (e) => {
+                    console.error('Video error:', e);
+                    this.statusText.setAttribute('value', 'Video error occurred');
+                });
+            }
+
+            updateUI() {
+                if (!this.serverState) return;
+
+                // Update status displays in overlay (if visible)
+                const controllerStatus = document.getElementById('controller-status');
+                const gestureEnabledSpan = document.getElementById('gesture-enabled');
+                
+                if (controllerStatus) {
+                    controllerStatus.textContent = this.serverState.vrClientReady ? 'Connected' : 'Disconnected';
+                }
+                
+                if (gestureEnabledSpan) {
+                    gestureEnabledSpan.textContent = this.serverState.gestureEnabled ? 'Yes' : 'No';
+                }
+
+                // Update VR status text
+                if (this.serverState.currentVideo) {
+                    if (this.serverState.isPlaying) {
+                        this.statusText.setAttribute('value', 
+                            `Playing: ${this.serverState.currentVideo.name}`);
+                    } else {
+                        this.statusText.setAttribute('value', 
+                            `Paused: ${this.serverState.currentVideo.name}`);
+                    }
+                } else {
+                    this.statusText.setAttribute('value', 'Ready - Use controller to start');
+                }
+            }
+
+            updateConnectionStatus(connected) {
+                const status = document.getElementById('connection-status');
+                if (connected) {
+                    status.className = 'connection-status connected';
+                    status.textContent = 'Connected';
+                } else {
+                    status.className = 'connection-status disconnected';
+                    status.textContent = 'Disconnected';
+                }
+            }
+
+            send(message) {
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify(message));
+                }
+            }
+
+            // UI Methods
+            captureGesture() {
+                if (!this.gestureEnabled) {
+                    this.gestureEnabled = true;
+                    
+                    // Stop gesture monitoring
+                    if (this.gestureCheckInterval) {
+                        clearInterval(this.gestureCheckInterval);
+                    }
+                    
+                    // Update UI
+                    const gestureStatus = document.getElementById('gesture-status');
+                    if (gestureStatus) {
+                        gestureStatus.textContent = 'Quest 2 interaction detected! Video playback enabled.';
+                    }
+                    
+                    // Update VR status text
+                    this.statusText.setAttribute('value', 'Gesture detected! Use phone controller to play videos');
+                    
+                    // Create audio context to ensure audio works
+                    try {
+                        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        if (audioContext.state === 'suspended') {
+                            audioContext.resume().then(() => {
+                                console.log('Audio context resumed for Quest 2');
+                            });
+                        }
+                    } catch (error) {
+                        console.log('Audio context creation failed:', error);
+                    }
+                    
+                    // Send to server
+                    this.send({ type: 'gesture_captured' });
+                    
+                    // Show ready step
+                    this.showStep(3);
+                    
+                    console.log('Quest 2 gesture captured - autoplay and audio now enabled');
+                }
+            }
+
+            showStep(stepNumber) {
+                // Hide current step
+                const currentStepEl = document.getElementById(`step-${this.currentStep}`);
+                if (currentStepEl) {
+                    currentStepEl.classList.remove('active');
+                }
+                
+                // Show new step
+                this.currentStep = stepNumber;
+                const newStepEl = document.getElementById(`step-${this.currentStep}`);
+                if (newStepEl) {
+                    newStepEl.classList.add('active');
+                }
+            }
+
+            nextStep() {
+                const currentStepEl = document.getElementById(`step-${this.currentStep}`);
+                currentStepEl.classList.remove('active');
+                
+                this.currentStep++;
+                
+                const nextStepEl = document.getElementById(`step-${this.currentStep}`);
+                if (nextStepEl) {
+                    nextStepEl.classList.add('active');
+                }
+            }
+
+            enterVR() {
+                const overlay = document.getElementById('ui-overlay');
+                overlay.classList.add('hidden');
+                
+                // Enter VR mode
+                const scene = document.getElementById('vr-scene');
+                if (scene.hasLoaded) {
+                    scene.enterVR();
+                } else {
+                    // If scene not loaded yet, wait and try again
+                    scene.addEventListener('loaded', () => {
+                        scene.enterVR();
+                    });
+                }
+            }
+        }
+
+        // Global functions for UI buttons
+        function nextStep() {
+            window.vrPlayer.nextStep();
+        }
+
+        function captureGesture() {
+            window.vrPlayer.captureGesture();
+        }
+
+        function enterVR() {
+            window.vrPlayer.enterVR();
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.vrPlayer = new VRVideoPlayer();
+        });
+    </script>
+</body>
+</html>

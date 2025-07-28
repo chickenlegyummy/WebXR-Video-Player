@@ -1,0 +1,24 @@
+{
+  "name": "webxr-video-player",
+  "version": "1.0.0",
+  "description": "WebXR video player with remote control that bypasses Chrome autoplay restrictions",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "webxr",
+    "vr",
+    "video-player",
+    "websocket",
+    "remote-control"
+  ],
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.13.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
