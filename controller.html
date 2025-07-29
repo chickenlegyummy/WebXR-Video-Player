@@ -357,7 +357,7 @@
 
             initWebSocket() {
                 try {
-                    this.ws = new WebSocket('ws://192.168.0.128:8080');
+                    this.ws = new WebSocket('wss://192.168.0.102:3000');
                     
                     this.ws.onopen = () => {
                         console.log('Controller WebSocket connected');
@@ -455,7 +455,7 @@
                 
                 if (this.serverState.currentVideo) {
                     currentVideo.textContent = this.serverState.currentVideo.name;
-                    videoInfo.textContent = `${this.serverState.currentVideo.file} • ${Math.floor(this.serverState.currentVideo.duration / 60)}:${(this.serverState.currentVideo.duration % 60).toString().padStart(2, '0')}`;
+                    videoInfo.textContent = this.serverState.currentVideo.file + " • " + Math.floor(this.serverState.currentVideo.duration / 60) + ":" + (this.serverState.currentVideo.duration % 60).toString().padStart(2, '0');
                 } else {
                     currentVideo.textContent = 'No video selected';
                     videoInfo.textContent = 'Select a video from the playlist below';
@@ -504,7 +504,7 @@
                 
                 const resetTime = new Date(data.timestamp).toLocaleTimeString();
                 
-                notificationText.textContent = `VR perspective reset detected (${this.vrResetCount})`;
+                notificationText.textContent = "VR perspective reset detected (" + this.vrResetCount + ")";
                 lastResetTime.textContent = resetTime;
                 
                 notification.classList.remove('hidden');
@@ -529,10 +529,10 @@
                 const formatTime = (seconds) => {
                     const mins = Math.floor(seconds / 60);
                     const secs = Math.floor(seconds % 60);
-                    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                    return mins.toString().padStart(2, '0') + ":" + secs.toString().padStart(2, '0');
                 };
 
-                timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+                timeDisplay.textContent = formatTime(currentTime) + " / " + formatTime(duration);
             }
 
             renderPlaylist() {
@@ -547,10 +547,9 @@
                     const duration = Math.floor(video.duration / 60) + ':' + 
                                    (video.duration % 60).toString().padStart(2, '0');
                     
-                    item.innerHTML = `
-                        <div class="title">${video.name}</div>
-                        <div class="duration">${video.file} • ${duration}</div>
-                    `;
+                    item.innerHTML = 
+                        '<div class="title">' + video.name + '</div>' +
+                        '<div class="duration">' + video.file + ' • ' + duration + '</div>';
                     
                     container.appendChild(item);
                 });
@@ -573,7 +572,7 @@
 
             updateConnectionStatus(status) {
                 const statusEl = document.getElementById('connection-status');
-                statusEl.className = `connection-status ${status}`;
+                statusEl.className = "connection-status " + status;
                 
                 switch (status) {
                     case 'connected':

@@ -1,19 +1,28 @@
 const WebSocket = require('ws');
 const express = require('express');
+const https = require('https');
 const path = require('path');
 const fs = require('fs');
 
 const app = express();
 const PORT = 3000;
+const WS_PORT = 8080;
+
+// HTTPS configuration
+const httpsOptions = {
+    key: fs.readFileSync(path.join(__dirname, 'keys', 'server.key')),
+    cert: fs.readFileSync(path.join(__dirname, 'keys', 'server.crt'))
+};
 
 // Serve static files
 app.use(express.static(__dirname));
 
 // Video playlist configuration
 const PLAYLIST = [
-    { id: 'intro', name: 'Introduction', file: 'intro.mp4', duration: 60 },
-    { id: 'dailylife', name: 'Daily Life', file: 'dailylife.mp4', duration: 300 },
-    { id: 'law', name: 'Law Content', file: 'law.mp4', duration: 240 }
+    { id: 'intro', name: 'Introduction', file: './public/intro.mp4', duration:  24},
+    { id: '4_4_2_1', name: '4_4_2_1', file: './public/4_4_2_1.mp4', duration: 17},
+    { id: '9_5', name: '9_5', file: './public/9_5.mp4', duration: 4},
+    { id: '10', name: '10', file: './public/10.mp4', duration: 2},
 ];
 
 // Server state
@@ -27,8 +36,11 @@ let serverState = {
     gestureEnabled: false
 };
 
-// WebSocket server
-const wss = new WebSocket.Server({ port: 8080 });
+// Create HTTPS server
+const server = https.createServer(httpsOptions, app);
+
+// WebSocket server attached to HTTPS server
+const wss = new WebSocket.Server({ server });
 
 // Connected clients
 const clients = {
@@ -54,7 +66,12 @@ wss.on('connection', (ws) => {
             clients.vr = null;
             serverState.vrClientReady = false;
             serverState.gestureEnabled = false;
-            console.log('VR client disconnected');
+            // Reset video state when VR client disconnects
+            serverState.currentVideo = null;
+            serverState.currentIndex = -1;
+            serverState.isPlaying = false;
+            serverState.currentTime = 0;
+            console.log('VR client disconnected - resetting video state');
         }
         if (clients.controller === ws) {
             clients.controller = null;
@@ -142,7 +159,7 @@ function handleMessage(ws, data) {
 
         case 'select_video':
             if (ws === clients.controller && serverState.gestureEnabled) {
-                playVideo(data.index);
+                loadVideo(data.index);
             }
             break;
 
@@ -194,7 +211,7 @@ function playVideo(index) {
         serverState.isPlaying = true;
         serverState.currentTime = 0;
         
-        console.log(`Playing video: ${serverState.currentVideo.name}`);
+        console.log("Playing video: " + serverState.currentVideo.name);
         
         // Send play command to VR client
         if (clients.vr) {
@@ -241,7 +258,7 @@ function goToNextVideo() {
         serverState.isPlaying = false; // Don't auto-start
         serverState.currentTime = 0;
         
-        console.log(`Navigated to: ${serverState.currentVideo.name} (not playing)`);
+        console.log("Navigated to: " + serverState.currentVideo.name + " (not playing)");
         
         // Send video info to VR client but don't play yet
         if (clients.vr) {
@@ -255,6 +272,28 @@ function goToNextVideo() {
     } else {
         console.log('Reached end of playlist');
         serverState.isPlaying = false;
+        broadcastState();
+    }
+}
+
+function loadVideo(index) {
+    if (index >= 0 && index < PLAYLIST.length) {
+        // Navigate to selected video but don't auto-start
+        serverState.currentIndex = index;
+        serverState.currentVideo = PLAYLIST[index];
+        serverState.isPlaying = false; // Don't auto-start
+        serverState.currentTime = 0;
+        
+        console.log("Loaded: " + serverState.currentVideo.name + " (not playing)");
+        
+        // Send video info to VR client but don't play yet
+        if (clients.vr) {
+            sendToClient(clients.vr, {
+                type: 'load_video',
+                video: serverState.currentVideo
+            });
+        }
+        
         broadcastState();
     }
 }
@@ -300,9 +339,10 @@ app.get('/playlist', (req, res) => {
     res.json(PLAYLIST);
 });
 
-app.listen(PORT, () => {
-    console.log(`HTTP Server running on http://192.168.0.128:${PORT}`);
-    console.log(`WebSocket server running on ws://192.168.0.128:8080`);
-    console.log(`VR Client: http://192.168.0.128:${PORT}`);
-    console.log(`Controller: http://192.168.0.128:${PORT}/controller`);
+// Start HTTPS server
+server.listen(PORT, () => {
+    console.log("HTTPS Server running on https://192.168.0.102:" + PORT);
+    console.log("WebSocket server running on wss://192.168.0.102:" + PORT);
+    console.log("VR Client: https://192.168.0.102:" + PORT);
+    console.log("Controller: https://192.168.0.102:" + PORT + "/controller");
 });

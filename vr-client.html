@@ -131,7 +131,6 @@
     </div>
 
     <div id="ui-overlay">
-        <!-- Step 1: Welcome & VR Entry -->
         <div id="step-1" class="step active">
             <h2>🥽 WebXR Video Player for Quest 2</h2>
             <p>Welcome! This is a VR video player optimized for Meta Quest 2.</p>
@@ -146,7 +145,6 @@
             <button onclick="enterVR()">Enter VR Mode</button>
         </div>
 
-        <!-- Step 2: VR Hand Gesture Detection (shown in VR) -->
         <div id="step-2" class="step">
             <h2>🎮 Quest 2 Interaction Required</h2>
             <p>You are now in WebXR VR mode!</p>
@@ -163,7 +161,6 @@
             </div>
         </div>
 
-        <!-- Step 3: Ready -->
         <div id="step-3" class="step">
             <h2>✅ Ready!</h2>
             <p>Hand gesture detected! Video player is now ready.</p>
@@ -177,7 +174,6 @@
         </div>
     </div>
 
-    <!-- A-Frame VR Scene -->
     <a-scene
         id="vr-scene"
         vr-mode-ui="enabled: true"
@@ -185,8 +181,7 @@
         embedded
         webxr="requiredFeatures: local-floor; optionalFeatures: hand-tracking"
         style="height: 100vh; width: 100vw;">
-        
-        <!-- Assets -->
+
         <a-assets>
             <video id="video-player" 
                    crossorigin="anonymous" 
@@ -197,19 +192,16 @@
             </video>
         </a-assets>
 
-        <!-- 360 Video Sphere -->
         <a-videosphere
             id="video-sphere"
             src="#video-player"
             visible="false"
             radius="100"
-            rotation="0 180 0">
+            rotation="0 -90 0">
         </a-videosphere>
 
-        <!-- Fallback Sky/Environment -->
         <a-sky id="fallback-sky" color="#000000"></a-sky>
 
-        <!-- UI Elements positioned for VR -->
         <a-text
             id="status-text"
             position="0 1.6 -2"
@@ -229,26 +221,22 @@
             visible="false">
         </a-text>
 
-        <!-- Simple VR Camera Setup -->
         <a-entity 
             id="vr-rig" 
             position="0 1.6 0">
             
-            <!-- Camera -->
             <a-camera 
                 id="vr-camera"
                 look-controls="pointerLockEnabled: false"
                 wasd-controls="enabled: false">
             </a-camera>
             
-            <!-- Left Hand Controller - Quest 2 Only -->
             <a-entity 
                 id="left-hand"
                 oculus-touch-controls="hand: left"
                 visible="true">
             </a-entity>
             
-            <!-- Right Hand Controller - Quest 2 Only -->
             <a-entity 
                 id="right-hand" 
                 oculus-touch-controls="hand: right"
@@ -256,7 +244,6 @@
             </a-entity>
         </a-entity>
 
-        <!-- Simple Lighting -->
         <a-light type="ambient" color="#404040" intensity="0.4"></a-light>
         <a-light type="directional" position="2 4 5" color="#ffffff" intensity="0.2"></a-light>
     </a-scene>
@@ -349,21 +336,21 @@
                     if (hand) {
                         // Quest 2 controller button events
                         hand.addEventListener('triggerdown', () => {
-                            console.log(`${handId} trigger pressed on Quest 2`);
+                            console.log(handId + " trigger pressed on Quest 2");
                             if (!this.gestureEnabled && this.inVRMode) {
                                 this.captureGesture();
                             }
                         });
 
                         hand.addEventListener('gripdown', () => {
-                            console.log(`${handId} grip pressed on Quest 2`);
+                            console.log(handId + " grip pressed on Quest 2");
                             if (!this.gestureEnabled && this.inVRMode) {
                                 this.captureGesture();
                             }
                         });
 
                         hand.addEventListener('buttondown', () => {
-                            console.log(`${handId} button pressed on Quest 2`);
+                            console.log(handId + " button pressed on Quest 2");
                             if (!this.gestureEnabled && this.inVRMode) {
                                 this.captureGesture();
                             }
@@ -371,7 +358,7 @@
 
                         // Quest 2 thumbstick events
                         hand.addEventListener('thumbstickmoved', () => {
-                            console.log(`${handId} thumbstick moved on Quest 2`);
+                            console.log(handId + " thumbstick moved on Quest 2");
                             if (!this.gestureEnabled && this.inVRMode) {
                                 this.captureGesture();
                             }
@@ -404,7 +391,7 @@
                              Math.abs(position.z - lastPos.z) > 0.05;
                 
                 if (moved) {
-                    console.log(`${handId} movement detected on Quest 2`);
+                    console.log(handId + " movement detected on Quest 2");
                     this.captureGesture();
                 }
                 
@@ -478,7 +465,7 @@
 
             initWebSocket() {
                 try {
-                    this.ws = new WebSocket('ws://192.168.0.128:8080');
+                    this.ws = new WebSocket('wss://192.168.0.102:3000');
                     
                     this.ws.onopen = () => {
                         console.log('WebSocket connected');
@@ -580,15 +567,21 @@
                             fallbackSky.setAttribute('visible', 'false');
                         }
                         
-                        this.statusText.setAttribute('value', `Playing: ${video.name}`);
+                        // Hide status text and video title during playback
+                        this.statusText.setAttribute('visible', 'false');
+                        this.videoTitle.setAttribute('visible', 'false');
+                        
+                        console.log("Playing: " + video.name);
                     } else {
                         this.statusText.setAttribute('value', 'Waiting for user gesture...');
+                        this.statusText.setAttribute('visible', 'true');
+                        console.log('Waiting for user gesture...');
                     }
                     
                     this.send({ type: 'video_ready' });
                 } catch (error) {
                     console.error('Error playing video:', error);
-                    this.statusText.setAttribute('value', `Error: ${error.message}`);
+                    console.log("Error: " + error.message);
                 }
             }
 
@@ -598,7 +591,10 @@
                         this.videoPlayer.muted = false;
                         this.videoPlayer.volume = 1.0;
                         await this.videoPlayer.play();
-                        this.statusText.setAttribute('value', 'Video resumed');
+                        // Hide status text and video title during playback
+                        this.statusText.setAttribute('visible', 'false');
+                        this.videoTitle.setAttribute('visible', 'false');
+                        console.log('Video resumed');
                     } catch (error) {
                         console.error('Error resuming video:', error);
                     }
@@ -614,7 +610,8 @@
                     this.videoPlayer.load();
                     
                     // Update UI elements
-                    this.statusText.setAttribute('value', `Ready: ${video.name} (Press Play to start)`);
+                    this.statusText.setAttribute('value', "Ready: " + video.name + " (Press Play to start)");
+                    this.statusText.setAttribute('visible', 'true');
                     
                     if (this.videoTitle) {
                         this.videoTitle.setAttribute('value', video.name);
@@ -634,7 +631,7 @@
                     this.send({ type: 'video_ready' });
                 } catch (error) {
                     console.error('Error loading video:', error);
-                    this.statusText.setAttribute('value', `Error loading: ${error.message}`);
+                    console.log("Error loading: " + error.message);
                 }
             }
 
@@ -642,10 +639,15 @@
                 if (this.gestureEnabled && !this.videoPlayer.paused) {
                     try {
                         this.videoPlayer.pause();
+                        // Show status text when paused
+                        this.statusText.setAttribute('visible', 'true');
                         this.statusText.setAttribute('value', 
                             this.serverState?.currentVideo?.name ? 
-                            `Paused: ${this.serverState.currentVideo.name}` : 
-                            'Video paused');
+                            "Paused: " + this.serverState.currentVideo.name : 
+                            "Video paused");
+                        console.log(this.serverState?.currentVideo?.name ? 
+                            "Paused: " + this.serverState.currentVideo.name : 
+                            "Video paused");
                     } catch (error) {
                         console.error('Error pausing video:', error);
                     }
@@ -674,13 +676,16 @@
                         fallbackSky.setAttribute('visible', 'true');
                     }
                     
+                    // Show status text when video ends
+                    this.statusText.setAttribute('visible', 'true');
                     this.statusText.setAttribute('value', 'Video completed');
+                    console.log('Video completed');
                     this.send({ type: 'video_ended' });
                 });
 
                 this.videoPlayer.addEventListener('error', (e) => {
                     console.error('Video error:', e);
-                    this.statusText.setAttribute('value', 'Video error occurred');
+                    console.log('Video error occurred');
                 });
             }
 
@@ -702,14 +707,14 @@
                 // Update VR status text
                 if (this.serverState.currentVideo) {
                     if (this.serverState.isPlaying) {
-                        this.statusText.setAttribute('value', 
-                            `Playing: ${this.serverState.currentVideo.name}`);
+                        console.log("Playing: " + this.serverState.currentVideo.name);
                     } else {
-                        this.statusText.setAttribute('value', 
-                            `Paused: ${this.serverState.currentVideo.name}`);
+                        console.log("Paused: " + this.serverState.currentVideo.name);
                     }
                 } else {
                     this.statusText.setAttribute('value', 'Ready - Use controller to start');
+                    this.statusText.setAttribute('visible', 'true');
+                    console.log('Ready - Use controller to start');
                 }
             }
 
@@ -773,26 +778,26 @@
 
             showStep(stepNumber) {
                 // Hide current step
-                const currentStepEl = document.getElementById(`step-${this.currentStep}`);
+                const currentStepEl = document.getElementById("step-" + this.currentStep);
                 if (currentStepEl) {
                     currentStepEl.classList.remove('active');
                 }
                 
                 // Show new step
                 this.currentStep = stepNumber;
-                const newStepEl = document.getElementById(`step-${this.currentStep}`);
+                const newStepEl = document.getElementById("step-" + this.currentStep);
                 if (newStepEl) {
                     newStepEl.classList.add('active');
                 }
             }
 
             nextStep() {
-                const currentStepEl = document.getElementById(`step-${this.currentStep}`);
+                const currentStepEl = document.getElementById("step-" + this.currentStep);
                 currentStepEl.classList.remove('active');
                 
                 this.currentStep++;
                 
-                const nextStepEl = document.getElementById(`step-${this.currentStep}`);
+                const nextStepEl = document.getElementById("step-" + this.currentStep);
                 if (nextStepEl) {
                     nextStepEl.classList.add('active');
                 }

@@ -65,14 +65,14 @@ Chrome's autoplay policy prevents automatic video playback without user interact
    ```
 
 3. **Access Applications**
-   - VR Client: `http://192.168.0.128:3000`
-   - Controller: `http://192.168.0.128:3000/controller`
+   - VR Client: `http://192.168.0.102:3000`
+   - Controller: `http://192.168.0.102:3000/controller`
 
 ## 📱 Usage Instructions
 
 ### Initial Setup
-1. **VR Side**: Open `http://192.168.0.128:3000` in VR browser
-2. **Controller Side**: Open `http://192.168.0.128:3000/controller` on phone
+1. **VR Side**: Open `http://192.168.0.102:3000` in VR browser
+2. **Controller Side**: Open `http://192.168.0.102:3000/controller` on phone
 3. **Follow Setup Wizard**: Complete gesture capture and audio test
 4. **Enter VR Mode**: Start immersive experience
 
